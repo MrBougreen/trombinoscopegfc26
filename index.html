@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trombinoscope – Master GFC 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0f2240;
+      --blue: #1a3a6e;
+      --accent: #e8a04a;
+      --cream: #f8f5ef;
+      --white: #ffffff;
+      --gray: #6b7280;
+      --light: #e5e9f2;
+      --red: #dc2626;
+      --purple: #7c3aed;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--navy); min-height: 100vh; }
+
+    /* ── FIREBASE CONFIG BANNER (shown until configured) ── */
+    #config-warn {
+      display: none;
+      background: #fef3c7;
+      border-bottom: 2px solid #f59e0b;
+      padding: 0.8rem 2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #92400e;
+    }
+    #config-warn strong { color: #78350f; }
+    #config-warn a { color: #b45309; font-weight: 700; }
+
+    /* ── LOADING SCREEN ── */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--navy);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.2rem;
+      transition: opacity 0.5s;
+    }
+    .loader-logo { font-family: 'Playfair Display', serif; color: #fff; font-size: 1.8rem; text-align: center; }
+    .loader-logo span { color: var(--accent); }
+    .loader-bar { width: 200px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; }
+    .loader-bar-inner { height: 100%; background: var(--accent); border-radius: 2px; animation: load 1.5s ease infinite; }
+    @keyframes load { 0%{width:0;margin-left:0} 50%{width:100%;margin-left:0} 100%{width:0;margin-left:100%} }
+    .loader-txt { color: rgba(255,255,255,0.5); font-size: 0.82rem; }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, var(--navy) 0%, #1e3a6a 60%, #2d4f8a 100%);
+      padding: 3rem 2rem 4rem; text-align: center; position: relative; overflow: hidden;
+    }
+    header::before {
+      content: ''; position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .header-badge {
+      display: inline-block; background: var(--accent); color: var(--navy);
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+      padding: 0.3rem 1rem; border-radius: 20px; margin-bottom: 1.2rem; position: relative;
+    }
+    header h1 { font-family: 'Playfair Display', serif; font-size: clamp(2rem,5vw,3.2rem); color: #fff; line-height: 1.15; margin-bottom: 1rem; position: relative; }
+    header h1 span { color: var(--accent); }
+    header p { color: rgba(255,255,255,0.65); font-size: 0.95rem; max-width: 520px; margin: 0 auto; line-height: 1.7; position: relative; }
+
+    /* ── LIVE INDICATOR ── */
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3);
+      color: #4ade80; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+      padding: 0.25rem 0.7rem; border-radius: 20px; margin-top: 0.8rem;
+      position: relative;
+    }
+    .live-dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── PROF BANNER ── */
+    .prof-banner {
+      background: linear-gradient(90deg, #0a4f1e, #166534);
+      color: #fff; padding: 0.65rem 2rem;
+      display: none; align-items: center; justify-content: space-between; font-size: 0.85rem;
+    }
+    .prof-banner.visible { display: flex; }
+    .prof-banner-left { display: flex; align-items: center; gap: 0.7rem; }
+    .prof-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: blink 2s infinite; }
+    .prof-banner-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 0.3rem 0.9rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; font-family: inherit; }
+    .prof-banner-btn:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── TOOLBAR ── */
+    .toolbar { background: var(--white); border-bottom: 1px solid var(--light); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(15,34,64,0.07); }
+    .toolbar-inner { max-width: 1200px; margin: 0 auto; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .view-toggle { display: flex; background: var(--cream); border-radius: 10px; padding: 4px; gap: 4px; }
+    .view-toggle button { padding: 0.5rem 1.1rem; border: none; background: transparent; border-radius: 8px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; color: var(--gray); font-family: inherit; }
+    .view-toggle button.active { background: var(--navy); color: #fff; }
+    select { padding: 0.5rem 1rem; border: 1.5px solid var(--light); border-radius: 8px; font-size: 0.85rem; background: #fff; color: var(--navy); font-family: inherit; cursor: pointer; outline: none; transition: border-color 0.2s; }
+    select:focus { border-color: var(--blue); }
+    .btn-add { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.4rem; background: var(--accent); color: var(--navy); border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; margin-left: auto; font-family: inherit; }
+    .btn-add:hover { background: #d4922e; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,160,74,0.4); }
+
+    .stats-bar { max-width: 1200px; margin: 0 auto; padding: 0.6rem 2rem; display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--gray); align-items: center; }
+    .sync-indicator { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #16a34a; }
+    .sync-dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; }
+
+    .search-wrap { max-width: 1200px; margin: 1.5rem auto 0; padding: 0 2rem; }
+    .search-input { width: 100%; padding: 0.8rem 1.2rem 0.8rem 3rem; border: 2px solid var(--light); border-radius: 12px; font-size: 0.95rem; font-family: inherit; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 1rem center; outline: none; transition: border-color 0.2s; }
+    .search-input:focus { border-color: var(--blue); }
+
+    .grid-wrap { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
+
+    /* ── CARD ── */
+    .card { background: #fff; border-radius: 16px; overflow: hidden; border: 1.5px solid var(--light); cursor: pointer; transition: transform 0.25s, box-shadow 0.25s; animation: fadeIn 0.4s ease forwards; opacity: 0; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(15,34,64,0.13); border-color: var(--accent); }
+    .card-photo { aspect-ratio: 3/4; position: relative; background: linear-gradient(135deg, #dde4f0, #c8d2e8); overflow: hidden; }
+    .card-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+    .card:hover .card-photo img { transform: scale(1.04); }
+    .card-photo .no-photo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; }
+    .badge { position: absolute; top: 0.6rem; right: 0.6rem; padding: 0.2rem 0.6rem; background: var(--navy); color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 6px; }
+    .badge-note { position: absolute; top: 0.6rem; left: 0.6rem; padding: 0.2rem 0.6rem; background: var(--accent); color: var(--navy); font-size: 0.65rem; font-weight: 700; border-radius: 6px; }
+    .card-body { padding: 0.9rem 1rem 1rem; }
+    .card-name { font-weight: 700; font-size: 0.95rem; color: var(--navy); line-height: 1.3; }
+    .card-parcours { font-size: 0.75rem; color: var(--gray); margin-top: 0.3rem; }
+    .card-email { font-size: 0.72rem; color: #4a6fa5; margin-top: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-remark { font-size: 0.72rem; color: var(--gray); font-style: italic; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--light); }
+    .card-profs-count { font-size: 0.68rem; color: var(--purple); font-weight: 600; margin-top: 0.3rem; }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 5rem 2rem; display: none; }
+    .empty-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .empty h3 { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .empty p { color: var(--gray); margin-bottom: 1.5rem; }
+
+    /* ── OVERLAYS ── */
+    .overlay { position: fixed; inset: 0; background: rgba(15,34,64,0.55); backdrop-filter: blur(6px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; }
+    .overlay.open { display: flex; }
+
+    /* ── PIN BOX ── */
+    .pin-box { background: #fff; border-radius: 24px; width: 100%; max-width: 400px; overflow: hidden; box-shadow: 0 30px 80px rgba(15,34,64,0.3); animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+    .pin-header { background: linear-gradient(135deg, var(--navy), #2d4f8a); padding: 2rem; text-align: center; }
+    .pin-lock-icon { width: 64px; height: 64px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.9rem; }
+    .pin-header h2 { font-family: 'Playfair Display', serif; color: #fff; font-size: 1.4rem; margin-bottom: 0.3rem; }
+    .pin-header p { color: rgba(255,255,255,0.6); font-size: 0.83rem; }
+    .pin-body { padding: 1.6rem; }
+    .prof-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.55rem; }
+    .prof-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.8rem; border: 1.5px solid var(--light); border-radius: 10px; background: #fff; font-size: 0.82rem; font-weight: 600; color: var(--navy); cursor: pointer; transition: all 0.18s; font-family: inherit; text-align: left; }
+    .prof-btn:hover { border-color: var(--accent); background: #fdf8f0; }
+    .prof-initial { width: 28px; height: 28px; background: var(--accent); color: var(--navy); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; flex-shrink: 0; }
+    .pin-code-step { text-align: center; }
+    .pin-who { font-weight: 700; font-size: 1rem; color: var(--navy); margin-bottom: 1rem; }
+    .pin-dots { display: flex; justify-content: center; gap: 0.8rem; margin-bottom: 1.2rem; }
+    .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--light); background: transparent; transition: all 0.15s; }
+    .pin-dot.filled { background: var(--navy); border-color: var(--navy); }
+    .pin-dot.error { background: var(--red); border-color: var(--red); animation: wiggle 0.35s ease; }
+    @keyframes wiggle { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
+    .key { aspect-ratio: 1; border: 1.5px solid var(--light); border-radius: 12px; background: #fff; font-size: 1.25rem; font-weight: 700; color: var(--navy); cursor: pointer; transition: all 0.12s; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+    .key:hover { background: var(--cream); border-color: var(--navy); }
+    .key:active { transform: scale(0.91); }
+    .key-del { font-size: 1rem; color: var(--gray); }
+    .key-back { font-size: 0.75rem; font-weight: 700; color: var(--blue); }
+    .key-back:hover { background: #eef2ff; border-color: var(--blue); }
+    .pin-err { color: var(--red); font-size: 0.8rem; margin-top: 0.8rem; min-height: 1.2em; }
+
+    /* ── MODAL ── */
+    .modal { background: #fff; border-radius: 20px; width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 80px rgba(15,34,64,0.25); animation: slideUp 0.3s ease; }
+    .modal-hd { background: linear-gradient(135deg, var(--navy), var(--blue)); padding: 1.4rem 1.6rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .modal-hd h2 { font-family: 'Playfair Display', serif; color: #fff; font-size: 1.25rem; }
+    .modal-hd button { background: rgba(255,255,255,0.15); border: none; color: #fff; border-radius: 8px; padding: 0.35rem; cursor: pointer; transition: background 0.2s; line-height: 0; }
+    .modal-hd button:hover { background: rgba(255,255,255,0.25); }
+    .modal-body { padding: 1.6rem; overflow-y: auto; flex: 1; }
+    .fg { margin-bottom: 1.1rem; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--navy); margin-bottom: 0.4rem; }
+    label .req { color: var(--red); }
+    input[type=text], input[type=email], input[type=number], textarea, select.fs { width: 100%; padding: 0.65rem 0.9rem; border: 1.5px solid var(--light); border-radius: 10px; font-size: 0.9rem; font-family: inherit; color: var(--navy); outline: none; background: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
+    input:focus, textarea:focus, select.fs:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,58,110,0.1); }
+    textarea { resize: vertical; min-height: 70px; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .pu-area { border: 2px dashed var(--light); border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .pu-area:hover { border-color: var(--accent); background: #fdf8f0; }
+    .pu-area.has-p { border-style: solid; border-color: var(--accent); }
+    .pu-prev { display: flex; align-items: center; gap: 1rem; }
+    .pu-thumb { width: 72px; height: 96px; object-fit: cover; border-radius: 8px; border: 2px solid var(--light); flex-shrink: 0; }
+    .pz { margin-top: 1rem; padding: 1rem; border-radius: 12px; background: #f5f3ff; border: 1.5px solid #ddd6fe; }
+    .pz-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--purple); margin-bottom: 0.8rem; }
+    .pz-tag { display: inline-block; font-size: 0.78rem; color: var(--purple); background: #ede9fe; padding: 0.3rem 0.7rem; border-radius: 6px; margin-bottom: 0.8rem; }
+    .modal-ft { padding: 1rem 1.6rem; background: var(--cream); border-top: 1px solid var(--light); display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-shrink: 0; }
+    .btn { padding: 0.6rem 1.3rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-family: inherit; }
+    .btn-p { background: var(--navy); color: #fff; }
+    .btn-p:hover { background: var(--blue); transform: translateY(-1px); }
+    .btn-s { background: transparent; color: var(--navy); border: 1.5px solid var(--light); }
+    .btn-s:hover { background: var(--light); }
+    .btn-d { background: transparent; color: var(--red); border: 1.5px solid #fca5a5; }
+    .btn-d:hover { background: #fef2f2; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .saving-msg { font-size: 0.8rem; color: var(--gray); display: none; align-items: center; gap: 0.4rem; }
+    .saving-spin { width: 14px; height: 14px; border: 2px solid var(--light); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* ── CONFIRM ── */
+    .cbox { background: #fff; border-radius: 16px; padding: 2rem; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: slideUp 0.3s ease; }
+    .cicon { width: 56px; height: 56px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.5rem; }
+    .cbox h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--navy); }
+    .cbox p { font-size: 0.85rem; color: var(--gray); margin-bottom: 1.5rem; }
+    .cbtn { display: flex; gap: 0.8rem; }
+    .cbtn .btn { flex: 1; }
+    .btn-dc { background: var(--red); color: #fff; }
+    .btn-dc:hover { background: #b91c1c; }
+
+    /* ── TOAST ── */
+    .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1.2rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: toastIn 0.3s ease; }
+    @keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .toast-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .toast-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    footer { background: var(--navy); color: rgba(255,255,255,0.4); text-align: center; padding: 1.5rem; font-size: 0.8rem; margin-top: 3rem; }
+
+    @media (max-width: 600px) {
+      .toolbar-inner { gap: 0.6rem; }
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+      .frow { grid-template-columns: 1fr; }
+      .prof-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loader-logo">Trombinoscope<br><span>GFC 2026</span></div>
+  <div class="loader-bar"><div class="loader-bar-inner"></div></div>
+  <div class="loader-txt">Connexion en temps réel…</div>
+</div>
+
+<!-- FIREBASE NOT CONFIGURED WARNING -->
+<div id="config-warn">
+  ⚠️ <strong>Firebase non configuré.</strong> Les données sont stockées localement uniquement.
+  <a href="#" onclick="showSetupGuide()">Voir le guide de configuration →</a>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-badge">🎓 Université Master 2026</div>
+  <h1>Trombinoscope<br><span>GFC Promotion 2026</span></h1>
+  <p>Répertoire officiel des étudiants. Toutes les modifications sont synchronisées en temps réel.</p>
+  <div>
+    <span class="live-badge" id="live-badge" style="display:none">
+      <span class="live-dot"></span> EN DIRECT
+    </span>
+  </div>
+</header>
+
+<!-- PROF BANNER -->
+<div class="prof-banner" id="prof-banner">
+  <div class="prof-banner-left">
+    <div class="prof-dot"></div>
+    <span id="banner-name">Mode Professeur actif</span>
+  </div>
+  <button class="prof-banner-btn" onclick="logoutProf()">🔓 Déconnexion</button>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="view-toggle">
+      <button class="active" id="btn-stu" onclick="setView('students')">👥 Étudiants</button>
+      <button id="btn-prof" onclick="clickProfView()">🔒 Professeurs</button>
+    </div>
+    <select id="f-annee" onchange="renderGallery()">
+      <option value="">Toutes les années</option>
+      <option value="M1">M1</option>
+      <option value="M2">M2</option>
+    </select>
+    <button class="btn-add" onclick="openAdd()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Ajouter ma fiche
+    </button>
+  </div>
+</div>
+
+<div class="search-wrap">
+  <input class="search-input" type="text" id="search" placeholder="Rechercher par nom ou prénom…" oninput="renderGallery()">
+</div>
+<div class="stats-bar">
+  <span id="stat">Chargement…</span>
+  <span class="sync-indicator" id="sync-ind" style="display:none">
+    <span class="sync-dot"></span> Synchronisé en temps réel
+  </span>
+</div>
+
+<div class="grid-wrap">
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty">
+    <div class="empty-icon">👥</div>
+    <h3>Aucun étudiant inscrit</h3>
+    <p>Soyez le premier à ajouter votre fiche !</p>
+    <button class="btn btn-p" onclick="openAdd()">+ Ajouter ma fiche</button>
+  </div>
+</div>
+
+<footer>Trombinoscope Master GFC 2026 · Synchronisation Firebase en temps réel</footer>
+
+<!-- ══ PIN MODAL ══ -->
+<div class="overlay" id="pin-ov">
+  <div class="pin-box">
+    <div class="pin-header">
+      <div class="pin-lock-icon">🔐</div>
+      <h2>Accès Professeurs</h2>
+      <p>Sélectionnez votre profil puis entrez votre PIN</p>
+    </div>
+    <div class="pin-body">
+      <div id="step-pick">
+        <p style="font-size:0.82rem;font-weight:600;color:var(--navy);margin-bottom:0.8rem">Votre profil :</p>
+        <div class="prof-grid" id="prof-grid"></div>
+        <div style="margin-top:1rem;text-align:center">
+          <button class="btn btn-s" style="font-size:0.82rem" onclick="closePinModal()">Annuler</button>
+        </div>
+      </div>
+      <div id="step-pin" style="display:none">
+        <div class="pin-code-step">
+          <div class="pin-who" id="pin-who"></div>
+          <div class="pin-dots">
+            <div class="pin-dot" id="d0"></div>
+            <div class="pin-dot" id="d1"></div>
+            <div class="pin-dot" id="d2"></div>
+            <div class="pin-dot" id="d3"></div>
+          </div>
+          <div class="keypad">
+            <button class="key" onclick="kp('1')">1</button>
+            <button class="key" onclick="kp('2')">2</button>
+            <button class="key" onclick="kp('3')">3</button>
+            <button class="key" onclick="kp('4')">4</button>
+            <button class="key" onclick="kp('5')">5</button>
+            <button class="key" onclick="kp('6')">6</button>
+            <button class="key" onclick="kp('7')">7</button>
+            <button class="key" onclick="kp('8')">8</button>
+            <button class="key" onclick="kp('9')">9</button>
+            <button class="key key-back" onclick="backToPick()">← Retour</button>
+            <button class="key" onclick="kp('0')">0</button>
+            <button class="key key-del" onclick="kDel()">⌫</button>
+          </div>
+          <div class="pin-err" id="pin-err"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD/EDIT MODAL ══ -->
+<div class="overlay" id="edit-ov" onclick="ovClick(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="modal-ttl">Ajouter ma fiche</h2>
+      <button onclick="closeEdit()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="sform" onsubmit="handleSave(event)">
+        <input type="hidden" id="fid">
+        <div class="fg">
+          <label>Photo de profil <span class="req">*</span></label>
+          <input type="file" id="ffile" accept="image/*" style="display:none" onchange="photoChange(event)">
+          <input type="hidden" id="fphoto" required>
+          <div class="pu-area" id="puarea" onclick="document.getElementById('ffile').click()">
+            <div id="pu-ph">
+              <div style="font-size:2rem;margin-bottom:0.5rem">📸</div>
+              <div style="font-size:0.82rem;color:var(--gray)"><strong style="color:var(--navy)">Cliquez pour ajouter une photo</strong><br>Format portrait 3:4 recommandé</div>
+            </div>
+            <div id="pu-prev" class="pu-prev" style="display:none">
+              <img id="prev-img" class="pu-thumb" src="" alt="">
+              <div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--navy)">Photo sélectionnée ✓</div>
+                <div style="font-size:0.78rem;color:var(--gray);margin-top:0.3rem">Cliquez pour changer</div>
+                <button type="button" onclick="clearPh(event)" style="margin-top:0.4rem;font-size:0.75rem;color:var(--red);background:none;border:none;cursor:pointer;padding:0">🗑 Supprimer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Nom <span class="req">*</span></label>
+            <input type="text" id="fnom" placeholder="DUPONT" required style="text-transform:uppercase">
+          </div>
+          <div class="fg">
+            <label>Prénom <span class="req">*</span></label>
+            <input type="text" id="fprenom" placeholder="Marie" required>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Email universitaire <span class="req">*</span></label>
+          <input type="email" id="femail" placeholder="marie.dupont@univ.fr" required>
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Parcours</label>
+            <select id="fparcours" class="fs">
+              <option value="">Sélectionner...</option>
+              <option value="Gestion Financière et Comptable (GFC)">GFC</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Année</label>
+            <select id="fannee" class="fs">
+              <option value="">Sélectionner...</option>
+              <option value="M1">M1</option>
+              <option value="M2">M2</option>
+            </select>
+          </div>
+        </div>
+        <div class="pz" id="pzone" style="display:none">
+          <div class="pz-title">📋 Zone Professeur</div>
+          <div class="pz-tag" id="pzone-name">—</div>
+          <div class="fg">
+            <label>Remarque académique</label>
+            <textarea id="fremarque" placeholder="Observations, commentaires sur cet étudiant..."></textarea>
+          </div>
+          <div class="fg">
+            <label>Note (0–20)</label>
+            <input type="number" id="fnote" min="0" max="20" step="0.5" placeholder="ex: 14.5">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-d" id="bdel" style="display:none" onclick="askDelete()">🗑 Supprimer</button>
+      <div class="saving-msg" id="saving-msg"><div class="saving-spin"></div> Enregistrement…</div>
+      <div style="display:flex;gap:0.7rem;margin-left:auto">
+        <button class="btn btn-s" onclick="closeEdit()">Annuler</button>
+        <button class="btn btn-p" id="bsave" onclick="document.getElementById('sform').requestSubmit()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DELETE CONFIRM ══ -->
+<div class="overlay" id="del-ov" style="z-index:300">
+  <div class="cbox">
+    <div class="cicon">🗑</div>
+    <h3>Supprimer cette fiche ?</h3>
+    <p>Cette action est irréversible et sera visible immédiatement par tous.</p>
+    <div class="cbtn">
+      <button class="btn btn-s" onclick="cancelDel()">Annuler</button>
+      <button class="btn btn-dc" onclick="execDel()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getDatabase, ref, onValue, push, update, remove, set }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+// ════════════════════════════════════════════════════════════
+//  🔥 FIREBASE CONFIGURATION
+//  → Remplacez ces valeurs par les vôtres (voir guide ci-dessous)
+// ════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM",
+  authDomain:        "trombinoscopegfc26.firebaseapp.com",
+  databaseURL:       "https://trombinoscopegfc26-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "trombinoscopegfc26",
+  storageBucket:     "trombinoscopegfc26.firebasestorage.app",
+  messagingSenderId: "1077452659073",
+  appId:             "1:1077452659073:web:db2b2a89a0cb1325d37080"
+};
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════
+//  👨‍🏫 CONFIGURATION PROFESSEURS
+//  → Changez les noms et PINs ici
+// ════════════════════════════════════════════════
+window.PROFS = [
+  { id: 'p1', name: 'Prof. Laiachi',  init: 'LA', pin: '1234' },
+  { id: 'p2', name: 'Prof. Waloufi',  init: 'WA', pin: '2345' },
+  { id: 'p3', name: 'Prof. Ajouil', init: 'AO', pin: '3456' },
+  { id: 'p4', name: 'Prof. Rahli', init: 'RA', pin: '4567' },
+  { id: 'p5', name: 'Prof. Zerouali',  init: 'ZR', pin: '5678' },
+  { id: 'p6', name: 'Prof. Adnani', init: 'AD', pin: '6789' },
+];
+// ════════════════════════════════════════════════
+
+const IS_DEMO = FIREBASE_CONFIG.apiKey === 'AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM';
+
+let db = null;
+let studentsRef = null;
+window.students = {};
+window.fbReady = false;
+
+if (IS_DEMO) {
+  document.getElementById('config-warn').style.display = 'block';
+  // Load from localStorage in demo mode
+  window.students = JSON.parse(localStorage.getItem('gfc_demo') || '{}');
+  hideLoader();
+  window.fbReady = false;
+} else {
+  try {
+    const app = initializeApp(FIREBASE_CONFIG);
+    db = getDatabase(app);
+    studentsRef = ref(db, 'students');
+
+    // Real-time listener
+    onValue(studentsRef, (snapshot) => {
+      window.students = snapshot.val() || {};
+      document.getElementById('live-badge').style.display = 'inline-flex';
+      document.getElementById('sync-ind').style.display   = 'flex';
+      window.fbReady = true;
+      hideLoader();
+      renderGallery();
+    }, (err) => {
+      console.error('Firebase error:', err);
+      document.getElementById('config-warn').style.display = 'block';
+      hideLoader();
+    });
+  } catch(e) {
+    console.error(e);
+    document.getElementById('config-warn').style.display = 'block';
+    hideLoader();
+  }
+}
+
+function hideLoader() {
+  const l = document.getElementById('loading-screen');
+  l.style.opacity = '0';
+  setTimeout(() => l.style.display = 'none', 500);
+  if (IS_DEMO) renderGallery();
+}
+
+// ── Firebase CRUD ──
+window.fbCreate = async function(data) {
+  if (IS_DEMO) {
+    const id = 'demo_' + Date.now();
+    window.students[id] = { ...data, id };
+    localStorage.setItem('gfc_demo', JSON.stringify(window.students));
+    renderGallery();
+    return id;
+  }
+  const newRef = push(studentsRef);
+  await set(newRef, { ...data, id: newRef.key });
+  return newRef.key;
+};
+
+window.fbUpdate = async function(id, data) {
+  if (IS_DEMO) {
+    window.students[id] = { ...window.students[id], ...data };
+    localStorage.setItem('gfc_demo', JSON.stringify(window.students));
+    renderGallery();
+    return;
+  }
+  await update(ref(db, 'students/' + id), data);
+};
+
+window.fbDelete = async function(id) {
+  if (IS_DEMO) {
+    delete window.students[id];
+    localStorage.setItem('gfc_demo', JSON.stringify(window.students));
+    renderGallery();
+    return;
+  }
+  await remove(ref(db, 'students/' + id));
+};
+
+</script>
+
+<script>
+// ════════════════════════════════════════════
+// APP STATE
+// ════════════════════════════════════════════
+let curView    = 'students';
+let activeProf = null;
+let editing    = null;
+let toDelete   = null;
+let pinBuf     = '';
+let pinTarget  = null;
+
+// ── View ──
+function setView(v) {
+  curView = v;
+  document.getElementById('btn-stu').classList.toggle('active', v==='students');
+  document.getElementById('btn-prof').classList.toggle('active', v==='professors');
+  renderGallery();
+}
+
+function clickProfView() {
+  if (activeProf) setView('professors');
+  else openPinModal();
+}
+
+// ── PIN ──
+function openPinModal() {
+  pinBuf = ''; pinTarget = null;
+  document.getElementById('step-pick').style.display = 'block';
+  document.getElementById('step-pin').style.display  = 'none';
+  buildProfGrid();
+  document.getElementById('pin-ov').classList.add('open');
+}
+function closePinModal() { document.getElementById('pin-ov').classList.remove('open'); }
+
+function buildProfGrid() {
+  const PROFS = window.PROFS || [];
+  document.getElementById('prof-grid').innerHTML = PROFS.map(p => `
+    <button class="prof-btn" onclick="pickProf('${p.id}')">
+      <span class="prof-initial">${p.init}</span>${p.name}
+    </button>`).join('');
+}
+
+function pickProf(id) {
+  const PROFS = window.PROFS || [];
+  pinTarget = PROFS.find(p => p.id === id);
+  pinBuf = '';
+  updateDots();
+  document.getElementById('pin-who').textContent = pinTarget.name;
+  document.getElementById('pin-err').textContent = '';
+  document.getElementById('step-pick').style.display = 'none';
+  document.getElementById('step-pin').style.display  = 'block';
+}
+function backToPick() {
+  pinBuf = ''; pinTarget = null;
+  document.getElementById('step-pick').style.display = 'block';
+  document.getElementById('step-pin').style.display  = 'none';
+}
+function kp(d) {
+  if (pinBuf.length >= 4) return;
+  pinBuf += d; updateDots();
+  if (pinBuf.length === 4) setTimeout(validatePin, 150);
+}
+function kDel() { pinBuf = pinBuf.slice(0,-1); updateDots(); }
+function updateDots() {
+  for (let i=0;i<4;i++) {
+    const dot = document.getElementById('d'+i);
+    dot.classList.toggle('filled', i < pinBuf.length);
+    dot.classList.remove('error');
+  }
+}
+function validatePin() {
+  if (pinBuf === pinTarget.pin) {
+    activeProf = { id: pinTarget.id, name: pinTarget.name };
+    closePinModal();
+    document.getElementById('prof-banner').classList.add('visible');
+    document.getElementById('banner-name').textContent = `🎓 Connecté : ${activeProf.name}`;
+    setView('professors');
+    showToast('✅ Bienvenue, ' + activeProf.name, 'success');
+  } else {
+    document.getElementById('pin-err').textContent = '❌ Code PIN incorrect. Réessayez.';
+    for (let i=0;i<4;i++) document.getElementById('d'+i).classList.add('error');
+    setTimeout(() => { pinBuf = ''; updateDots(); }, 700);
+  }
+}
+function logoutProf() {
+  activeProf = null;
+  document.getElementById('prof-banner').classList.remove('visible');
+  setView('students');
+  showToast('Déconnexion effectuée', 'success');
+}
+
+// ── Gallery ──
+function getList() {
+  const annee = document.getElementById('f-annee').value;
+  const q     = document.getElementById('search').value.toLowerCase().trim();
+  return Object.values(window.students || {})
+    .filter(s => !annee || s.annee === annee)
+    .filter(s => !q || (s.nom+' '+s.prenom).toLowerCase().includes(q))
+    .sort((a,b) => (a.nom||'').localeCompare(b.nom||'','fr'));
+}
+
+function renderGallery() {
+  const grid  = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  const list  = getList();
+  document.getElementById('stat').textContent = `${list.length} étudiant(s) inscrit(s)`;
+  if (!list.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  const isP = curView === 'professors';
+  grid.innerHTML = list.map((s,i) => {
+    const notes  = s.profNotes || {};
+    const myN    = activeProf ? notes[activeProf.id] : null;
+    const nCount = Object.keys(notes).filter(k => notes[k] && notes[k].note != null && notes[k].note !== '').length;
+    return `<div class="card" style="animation-delay:${i*0.04}s" onclick="openEdit('${s.id}')">
+      <div class="card-photo">
+        ${s.photo ? `<img src="${esc(s.photo)}" alt="" onerror="this.style.display='none'">` : '<div class="no-photo">👤</div>'}
+        ${s.annee ? `<span class="badge">${esc(s.annee)}</span>` : ''}
+        ${isP && myN && myN.note != null && myN.note !== '' ? `<span class="badge-note">${myN.note}/20</span>` : ''}
+      </div>
+      <div class="card-body">
+        <div class="card-name">${esc(s.prenom)} ${esc(s.nom)}</div>
+        ${s.parcours ? `<div class="card-parcours">${esc(s.parcours)}</div>` : ''}
+        <div class="card-email">${esc(s.email)}</div>
+        ${isP && myN && myN.remarque ? `<div class="card-remark">"${esc(myN.remarque)}"</div>` : ''}
+        ${isP && nCount > 0 ? `<div class="card-profs-count">📋 ${nCount} note(s) de professeur</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(t) {
+  if (!t) return '';
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Add Modal ──
+function openAdd() {
+  editing = null;
+  document.getElementById('modal-ttl').textContent = 'Ajouter ma fiche';
+  document.getElementById('fid').value = '';
+  ['fnom','fprenom','femail','fremarque','fnote'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fparcours').value = '';
+  document.getElementById('fannee').value = '';
+  clearPhUI();
+  document.getElementById('bdel').style.display = 'none';
+  document.getElementById('bsave').textContent = 'Enregistrer';
+  showProfZone();
+  document.getElementById('edit-ov').classList.add('open');
+}
+
+// ── Edit Modal ──
+function openEdit(id) {
+  const s = (window.students || {})[id];
+  if (!s) return;
+  editing = s;
+  document.getElementById('modal-ttl').textContent = 'Modifier la fiche';
+  document.getElementById('fid').value     = s.id;
+  document.getElementById('fnom').value    = s.nom || '';
+  document.getElementById('fprenom').value = s.prenom || '';
+  document.getElementById('femail').value  = s.email || '';
+  document.getElementById('fparcours').value = s.parcours || '';
+  document.getElementById('fannee').value  = s.annee || '';
+  const myN = activeProf && s.profNotes ? s.profNotes[activeProf.id] : null;
+  document.getElementById('fremarque').value = myN ? (myN.remarque || '') : '';
+  document.getElementById('fnote').value     = myN && myN.note != null ? myN.note : '';
+  if (s.photo) {
+    document.getElementById('fphoto').value = s.photo;
+    document.getElementById('prev-img').src = s.photo;
+    document.getElementById('pu-ph').style.display   = 'none';
+    document.getElementById('pu-prev').style.display = 'flex';
+    document.getElementById('puarea').classList.add('has-p');
+  } else { clearPhUI(); }
+  document.getElementById('bdel').style.display = 'inline-flex';
+  document.getElementById('bsave').textContent = 'Mettre à jour';
+  showProfZone();
+  document.getElementById('edit-ov').classList.add('open');
+}
+
+function showProfZone() {
+  const pz = document.getElementById('pzone');
+  if (activeProf && curView === 'professors') {
+    pz.style.display = 'block';
+    document.getElementById('pzone-name').textContent = `👤 ${activeProf.name} — vos notes uniquement`;
+  } else {
+    pz.style.display = 'none';
+  }
+}
+
+function closeEdit() { document.getElementById('edit-ov').classList.remove('open'); editing = null; }
+function ovClick(e)  { if (e.target===document.getElementById('edit-ov')) closeEdit(); }
+
+// ── Photo ──
+function photoChange(e) {
+  const f = e.target.files[0]; if (!f) return;
+  // Compress image before storing (Firebase has 1MB per field limit)
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 600;
+      let w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = h*MAX/w; w = MAX; }
+      else if (h > MAX) { w = w*MAX/h; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      document.getElementById('fphoto').value = compressed;
+      document.getElementById('prev-img').src = compressed;
+      document.getElementById('pu-ph').style.display   = 'none';
+      document.getElementById('pu-prev').style.display = 'flex';
+      document.getElementById('puarea').classList.add('has-p');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+function clearPh(e) { e && e.stopPropagation(); clearPhUI(); }
+function clearPhUI() {
+  document.getElementById('fphoto').value = '';
+  document.getElementById('ffile').value  = '';
+  document.getElementById('prev-img').src = '';
+  document.getElementById('pu-ph').style.display   = 'block';
+  document.getElementById('pu-prev').style.display = 'none';
+  document.getElementById('puarea').classList.remove('has-p');
+}
+
+// ── Save ──
+async function handleSave(e) {
+  e.preventDefault();
+  const btn  = document.getElementById('bsave');
+  const smsg = document.getElementById('saving-msg');
+  btn.disabled = true;
+  smsg.style.display = 'flex';
+
+  const noteVal = document.getElementById('fnote').value;
+  const base = {
+    photo:    document.getElementById('fphoto').value,
+    nom:      document.getElementById('fnom').value.trim().toUpperCase(),
+    prenom:   document.getElementById('fprenom').value.trim(),
+    email:    document.getElementById('femail').value.trim().toLowerCase(),
+    parcours: document.getElementById('fparcours').value,
+    annee:    document.getElementById('fannee').value,
+  };
+
+  try {
+    if (editing) {
+      let upd = { ...base };
+      if (activeProf && curView === 'professors') {
+        const currentNotes = (window.students[editing.id] || {}).profNotes || {};
+        upd.profNotes = {
+          ...currentNotes,
+          [activeProf.id]: {
+            profName: activeProf.name,
+            note:     noteVal !== '' ? parseFloat(noteVal) : null,
+            remarque: document.getElementById('fremarque').value.trim(),
+            at:       new Date().toISOString()
+          }
+        };
+      }
+      await window.fbUpdate(editing.id, upd);
+      showToast('✅ Fiche mise à jour !', 'success');
+    } else {
+      const newS = {
+        ...base,
+        profNotes:  {},
+        created_at: new Date().toISOString()
+      };
+      if (activeProf && curView === 'professors') {
+        newS.profNotes[activeProf.id] = {
+          profName: activeProf.name,
+          note:     noteVal !== '' ? parseFloat(noteVal) : null,
+          remarque: document.getElementById('fremarque').value.trim(),
+          at:       new Date().toISOString()
+        };
+      }
+      await window.fbCreate(newS);
+      showToast('✅ Fiche ajoutée avec succès !', 'success');
+    }
+    closeEdit();
+  } catch(err) {
+    console.error(err);
+    showToast('❌ Erreur lors de l\'enregistrement', 'error');
+  } finally {
+    btn.disabled = false;
+    smsg.style.display = 'none';
+  }
+}
+
+// ── Delete ──
+function askDelete()  { if (!editing) return; toDelete = editing; document.getElementById('del-ov').classList.add('open'); }
+function cancelDel()  { document.getElementById('del-ov').classList.remove('open'); toDelete = null; }
+async function execDel() {
+  if (!toDelete) return;
+  try {
+    await window.fbDelete(toDelete.id);
+    showToast('🗑 Fiche supprimée', 'success');
+  } catch(e) {
+    showToast('❌ Erreur lors de la suppression', 'error');
+  }
+  cancelDel(); closeEdit();
+}
+
+// ── Toast ──
+function showToast(msg, type='success') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+// ── Setup guide popup ──
+function showSetupGuide() {
+  alert(`📋 GUIDE FIREBASE (3 minutes)\n\n` +
+    `1. Allez sur https://console.firebase.google.com\n` +
+    `2. Cliquez "Créer un projet" → nommez-le "trombinoscope-gfc"\n` +
+    `3. Dans le menu gauche → "Realtime Database" → "Créer une base"\n` +
+    `   Choisissez "Europe" et mode "Test" pour commencer\n` +
+    `4. Cliquez ⚙️ Paramètres du projet → "Vos applications" → </> Web\n` +
+    `   Copiez l'objet firebaseConfig\n` +
+    `5. Collez les valeurs dans le fichier HTML\n`+
+    `   (remplacez VOTRE_API_KEY, VOTRE_PROJECT, etc.)\n\n` +
+    `Voir le guide complet fourni avec ce fichier.`);
+}
+</script>
+</body>
+</html>
