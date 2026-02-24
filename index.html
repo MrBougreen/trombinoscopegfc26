@@ -459,23 +459,18 @@ import { getDatabase, ref, onValue, push, update, remove, set }
 // ═══════════════════════════════════════════════════════════
 //  🔥 FIREBASE — Remplacez par vos valeurs
 // ═══════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM",
-  authDomain: "trombinoscopegfc26.firebaseapp.com",
-  databaseURL: "https://trombinoscopegfc26-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "trombinoscopegfc26",
-  storageBucket: "trombinoscopegfc26.firebasestorage.app",
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM",
+  authDomain:        "trombinoscopegfc26.firebaseapp.com",
+  databaseURL:       "https://trombinoscopegfc26-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "trombinoscopegfc26",
+  storageBucket:     "trombinoscopegfc26.firebasestorage.app",
   messagingSenderId: "1077452659073",
-  appId: "1:1077452659073:web:db2b2a89a0cb1325d37080",
-  measurementId: "G-X84HRMRDFC"
+  appId:             "1:1077452659073:web:db2b2a89a0cb1325d37080"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 // ═══════════════════════════════════════════════════════════
 
-const IS_DEMO   = firebaseConfig.apiKey === 'AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM';
+const IS_DEMO = false; // Firebase configuré ✓
 window._fbReady = false;
 
 // ── Compression photo : redimensionne à max 350px, JPEG 72% ──
@@ -583,12 +578,12 @@ function hideLoader(msg) {
 //  👨‍🏫 PROFESSEURS & PINs — MODIFIEZ ICI
 // ════════════════════════════════════
 const PROFS = [
-  { id: 'p1', name: 'Prof. Laiachi',  init: 'LA', pin: '1234' },
-  { id: 'p2', name: 'Prof. Waloufi',  init: 'WA', pin: '2345' },
-  { id: 'p3', name: 'Prof. Ajouil', init: 'AO', pin: '3456' },
-  { id: 'p4', name: 'Prof. Rahli', init: 'RA', pin: '4567' },
-  { id: 'p5', name: 'Prof. Zerouali',  init: 'ZR', pin: '5678' },
-  { id: 'p6', name: 'Prof. Adnani', init: 'AD', pin: '6789' },
+  { id: 'p1', name: 'Prof. Martin',  init: 'MA', pin: '1234' },
+  { id: 'p2', name: 'Prof. Dubois',  init: 'DU', pin: '2345' },
+  { id: 'p3', name: 'Prof. Bernard', init: 'BE', pin: '3456' },
+  { id: 'p4', name: 'Prof. Lefevre', init: 'LE', pin: '4567' },
+  { id: 'p5', name: 'Prof. Moreau',  init: 'MO', pin: '5678' },
+  { id: 'p6', name: 'Prof. Lambert', init: 'LA', pin: '6789' },
 ];
 // ════════════════════════════════════
 
