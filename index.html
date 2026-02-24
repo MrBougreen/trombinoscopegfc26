@@ -372,6 +372,34 @@
         <!-- Email -->
         <div class="fg"><label>Email universitaire <span class="req">*</span></label><input type="email" id="femail" placeholder="marie.dupont@univ.fr" required></div>
 
+        <!-- PIN protection -->
+        <div class="fg" id="fpin-wrap">
+          <label>🔑 Code PIN personnel <span class="req">*</span>
+            <span style="font-weight:400;color:var(--gray);font-size:0.78rem"> — pour modifier/supprimer votre fiche</span>
+          </label>
+          <div style="position:relative">
+            <input type="password" id="fpin" placeholder="Choisissez un code à 4 chiffres"
+              maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+              style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid var(--light);border-radius:10px;font-size:0.9rem;font-family:inherit;color:var(--navy);outline:none;background:#fff;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:0.3em;"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+              onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(26,58,110,0.1)'"
+              onblur="this.style.borderColor='var(--light)';this.style.boxShadow='none'">
+            <span style="position:absolute;right:0.9rem;top:50%;transform:translateY(-50%);font-size:0.75rem;color:var(--gray)">4 chiffres</span>
+          </div>
+          <div style="font-size:0.75rem;color:var(--gray);margin-top:0.4rem">⚠️ Retenez bien ce code — il vous sera demandé pour modifier ou supprimer votre fiche.</div>
+        </div>
+
+        <!-- PIN confirmation (add mode only) -->
+        <div class="fg" id="fpin-confirm-wrap">
+          <label>🔑 Confirmer le code PIN</label>
+          <input type="password" id="fpin-confirm" placeholder="Répétez votre code PIN"
+            maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+            style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid var(--light);border-radius:10px;font-size:0.9rem;font-family:inherit;color:var(--navy);outline:none;background:#fff;transition:border-color 0.2s,box-shadow 0.2s;letter-spacing:0.3em;"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+            onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(26,58,110,0.1)'"
+            onblur="this.style.borderColor='var(--light)';this.style.boxShadow='none'">
+        </div>
+
         <!-- Licence d'origine -->
         <div class="fg">
           <label>🎓 Licence d'origine <span class="req">*</span></label>
@@ -427,9 +455,34 @@
       <div class="saving-msg" id="saving-msg"><div class="saving-spin"></div><span id="saving-txt">Enregistrement…</span></div>
       <div style="display:flex;gap:0.7rem;margin-left:auto">
         <button class="btn btn-s" onclick="closeEdit()">Annuler</button>
-        <button class="btn btn-p" id="bsave" onclick="document.getElementById('sform').requestSubmit()">Enregistrer</button>
+        <button class="btn btn-p" id="bsave" onclick="handleSaveClick()">Enregistrer</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══ PIN VERIFY OVERLAY ══ -->
+<div class="overlay" id="pin-verify-ov" style="z-index:250">
+  <div class="cbox" style="max-width:340px">
+    <div style="font-size:2rem;margin-bottom:0.5rem">🔑</div>
+    <h3 id="pin-verify-title">Vérification</h3>
+    <p id="pin-verify-desc" style="margin-bottom:1rem">Entrez votre code PIN pour continuer.</p>
+    <div style="display:flex;justify-content:center;gap:0.6rem;margin-bottom:0.8rem" id="pv-dots">
+      <div class="pin-dot" id="pv0"></div>
+      <div class="pin-dot" id="pv1"></div>
+      <div class="pin-dot" id="pv2"></div>
+      <div class="pin-dot" id="pv3"></div>
+    </div>
+    <div class="keypad" style="max-width:240px;margin:0 auto 0.5rem">
+      <button class="key" onclick="pvKp('1')">1</button><button class="key" onclick="pvKp('2')">2</button><button class="key" onclick="pvKp('3')">3</button>
+      <button class="key" onclick="pvKp('4')">4</button><button class="key" onclick="pvKp('5')">5</button><button class="key" onclick="pvKp('6')">6</button>
+      <button class="key" onclick="pvKp('7')">7</button><button class="key" onclick="pvKp('8')">8</button><button class="key" onclick="pvKp('9')">9</button>
+      <button class="key" onclick="pvCancel()" style="font-size:0.7rem;color:var(--gray)">Annuler</button>
+      <button class="key" onclick="pvKp('0')">0</button>
+      <button class="key key-del" onclick="pvDel()">⌫</button>
+    </div>
+    <div class="pin-err" id="pv-err" style="text-align:center"></div>
+    <div style="font-size:0.75rem;color:var(--gray);margin-top:0.5rem;text-align:center">Les professeurs peuvent toujours modifier sans PIN.</div>
   </div>
 </div>
 
@@ -760,6 +813,12 @@ function openAdd() {
   clearPhUI();
   document.getElementById('bdel').style.display = 'none';
   document.getElementById('bsave').textContent = 'Enregistrer';
+  // Show PIN fields for new fiche
+  document.getElementById('fpin').value = '';
+  document.getElementById('fpin-confirm').value = '';
+  document.getElementById('fpin-wrap').style.display = 'block';
+  document.getElementById('fpin-confirm-wrap').style.display = 'block';
+  document.getElementById('fpin').required = true;
   showProfZone();
   document.getElementById('edit-ov').classList.add('open');
 }
@@ -801,6 +860,13 @@ function openEdit(id) {
     document.getElementById('pu-prev').style.display = 'flex';
     document.getElementById('puarea').classList.add('has-p');
   } else { clearPhUI(); }
+  // Hide PIN fields when editing (PIN verified separately)
+  document.getElementById('fpin').value = '';
+  document.getElementById('fpin-confirm').value = '';
+  document.getElementById('fpin').required = false;
+  document.getElementById('fpin-wrap').style.display = 'none';
+  document.getElementById('fpin-confirm-wrap').style.display = 'none';
+  // Show delete only if: prof connected, OR student (PIN will be asked)
   document.getElementById('bdel').style.display = 'inline-flex';
   document.getElementById('bsave').textContent = 'Mettre à jour';
   showProfZone();
@@ -817,7 +883,12 @@ function showProfZone() {
   }
 }
 
-function closeEdit() { document.getElementById('edit-ov').classList.remove('open'); editing = null; pendingFile = null; }
+function closeEdit() {
+  document.getElementById('edit-ov').classList.remove('open');
+  editing = null; pendingFile = null;
+  document.getElementById('fpin').value = '';
+  document.getElementById('fpin-confirm').value = '';
+}
 function ovClick(e)  { if (e.target === document.getElementById('edit-ov')) closeEdit(); }
 
 // ── Photo select (just preview, upload happens on save) ──
@@ -857,6 +928,20 @@ async function handleSave(e) {
   smsg.style.display = 'flex';
 
   try {
+    // ── PIN validation for NEW fiche ──
+    if (!editing) {
+      const pin     = document.getElementById('fpin').value;
+      const pinConf = document.getElementById('fpin-confirm').value;
+      if (!/^[0-9]{4}$/.test(pin)) {
+        toast('❌ Le code PIN doit contenir exactement 4 chiffres.', 'err');
+        btn.disabled = false; smsg.style.display = 'none'; return;
+      }
+      if (pin !== pinConf) {
+        toast('❌ Les deux codes PIN ne correspondent pas.', 'err');
+        btn.disabled = false; smsg.style.display = 'none'; return;
+      }
+    }
+
     const noteVal = document.getElementById('fnote').value;
     const base = {
       nom:      document.getElementById('fnom').value.trim().toUpperCase(),
@@ -899,9 +984,14 @@ async function handleSave(e) {
       await window.fbUpdate(editing.id, upd);
       toast('✅ Fiche mise à jour !', 'ok');
     } else {
+      // Simple PIN hash (not crypto-secure but good enough for this use case)
+      const rawPin = document.getElementById('fpin').value;
+      const pinHash = btoa('gfc26_' + rawPin + '_salt');
+
       const newS = {
         ...base,
         photoURL,
+        pinHash,
         profNotes:  {},
         created_at: new Date().toISOString()
       };
@@ -927,7 +1017,17 @@ async function handleSave(e) {
 }
 
 // ── Delete ──
-function askDelete()  { if (!editing) return; toDelete = editing; document.getElementById('del-ov').classList.add('open'); }
+function askDelete() {
+  if (!editing) return;
+  // Professors can delete without PIN
+  if (activeProf) {
+    toDelete = editing;
+    document.getElementById('del-ov').classList.add('open');
+    return;
+  }
+  // Students must verify their PIN first
+  openPinVerify('delete');
+}
 function cancelDel()  { document.getElementById('del-ov').classList.remove('open'); toDelete = null; }
 async function execDel() {
   if (!toDelete) return;
@@ -938,6 +1038,80 @@ async function execDel() {
     toast('❌ Erreur lors de la suppression', 'err');
   }
   cancelDel(); closeEdit();
+}
+
+// ── PIN Verify overlay ──
+let pvBuf = '';
+let pvAction = null; // 'delete' or 'save'
+
+function openPinVerify(action) {
+  pvBuf = ''; pvAction = action;
+  updatePvDots();
+  document.getElementById('pv-err').textContent = '';
+  document.getElementById('pin-verify-title').textContent = action === 'delete' ? 'Supprimer votre fiche' : 'Modifier votre fiche';
+  document.getElementById('pin-verify-desc').textContent  = action === 'delete'
+    ? 'Entrez votre PIN pour confirmer la suppression.'
+    : 'Entrez votre PIN pour enregistrer les modifications.';
+  document.getElementById('pin-verify-ov').classList.add('open');
+}
+
+function pvCancel() {
+  document.getElementById('pin-verify-ov').classList.remove('open');
+  pvBuf = ''; pvAction = null;
+}
+
+function pvKp(d) {
+  if (pvBuf.length >= 4) return;
+  pvBuf += d; updatePvDots();
+  if (pvBuf.length === 4) setTimeout(pvValidate, 150);
+}
+
+function pvDel() { pvBuf = pvBuf.slice(0,-1); updatePvDots(); }
+
+function updatePvDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pv' + i);
+    dot.classList.toggle('filled', i < pvBuf.length);
+    dot.classList.remove('error');
+  }
+}
+
+function pvValidate() {
+  if (!editing) { pvCancel(); return; }
+  const expected = editing.pinHash;
+  const entered  = btoa('gfc26_' + pvBuf + '_salt');
+  if (!expected) {
+    // Fiche sans PIN (ancienne fiche) → autoriser
+    pvCancel();
+    pvExecute();
+    return;
+  }
+  if (entered === expected) {
+    pvCancel();
+    pvExecute();
+  } else {
+    document.getElementById('pv-err').textContent = '❌ Code PIN incorrect.';
+    for (let i = 0; i < 4; i++) document.getElementById('pv' + i).classList.add('error');
+    setTimeout(() => { pvBuf = ''; updatePvDots(); }, 700);
+  }
+}
+
+function pvExecute() {
+  if (pvAction === 'delete') {
+    toDelete = editing;
+    document.getElementById('del-ov').classList.add('open');
+  } else if (pvAction === 'save') {
+    document.getElementById('sform').requestSubmit();
+  }
+}
+
+function handleSaveClick() {
+  // New fiche: no PIN check needed (PIN is set during creation)
+  if (!editing) { document.getElementById('sform').requestSubmit(); return; }
+  // Prof: no PIN needed
+  if (activeProf) { document.getElementById('sform').requestSubmit(); return; }
+  // Edit: ask for PIN
+  openPinVerify('save');
 }
 
 // ── Toast ──
