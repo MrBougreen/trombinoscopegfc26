@@ -375,7 +375,7 @@
         <!-- Licence d'origine -->
         <div class="fg">
           <label>🎓 Licence d'origine <span class="req">*</span></label>
-          <select id="flicence" class="fs" required>
+          <select id="flicence" class="fs" required onchange="toggleAutreLicence(this.value)">
             <option value="">Sélectionner votre licence…</option>
             <option value="Licence Économie">Licence Économie</option>
             <option value="Licence Gestion">Licence Gestion</option>
@@ -384,8 +384,14 @@
             <option value="Licence Droit">Licence Droit</option>
             <option value="Licence Mathématiques">Licence Mathématiques</option>
             <option value="Licence Informatique">Licence Informatique</option>
-            <option value="Autre">Autre</option>
+            <option value="Autre">Autre…</option>
           </select>
+          <div id="autre-licence-wrap" style="display:none;margin-top:0.5rem">
+            <input type="text" id="flicence-autre"
+              placeholder="Précisez votre licence (ex: Licence Sociologie)"
+              style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid var(--accent);border-radius:10px;font-size:0.9rem;font-family:inherit;color:var(--navy);outline:none;background:#fffbf5;"
+              oninput="syncAutreLicence()">
+          </div>
         </div>
 
         <!-- Parcours / Année -->
@@ -441,8 +447,8 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
-     FIREBASE SDK (module) — Photos stockées en base64 compressé
-     directement dans la Realtime Database. Pas besoin de Storage.
+     FIREBASE SDK — Photos compressées et stockées directement
+     dans la Realtime Database. Zéro configuration supplémentaire.
 ══════════════════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp }
@@ -451,26 +457,25 @@ import { getDatabase, ref, onValue, push, update, remove, set }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 
 // ═══════════════════════════════════════════════════════════
-//  🔥 REMPLACEZ CES VALEURS PAR LES VÔTRES (Firebase Console)
+//  🔥 FIREBASE — Remplacez par vos valeurs
 // ═══════════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  apiKey:            "VOTRE_API_KEY",
-  authDomain:        "VOTRE_PROJECT.firebaseapp.com",
-  databaseURL:       "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "VOTRE_PROJECT",
-  storageBucket:     "VOTRE_PROJECT.appspot.com",
-  messagingSenderId: "VOTRE_SENDER_ID",
-  appId:             "VOTRE_APP_ID"
+  apiKey:            "AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM",
+  authDomain:        "trombinoscopegfc26.firebaseapp.com",
+  databaseURL:       "https://trombinoscopegfc26-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "trombinoscopegfc26",
+  storageBucket:     "trombinoscopegfc26.firebasestorage.app",
+  messagingSenderId: "1077452659073",
+  appId:             "1:1077452659073:web:db2b2a89a0cb1325d37080"
 };
 // ═══════════════════════════════════════════════════════════
 
-const IS_DEMO = FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY';
+const IS_DEMO   = FIREBASE_CONFIG.apiKey === 'AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM';
 window._fbReady = false;
 
-// ── Compression agressive : cible < 50 KB ──
-// On réduit la taille ET la qualité jusqu'à passer sous le seuil.
-// Résultat : photo portrait lisible ~200×267px, ~30-45 KB en base64.
-window.compressForDB = async function(file) {
+// ── Compression photo : redimensionne à max 350px, JPEG 72% ──
+// Résultat typique : ~40-80 KB, largement sous la limite Firebase (10 MB/nœud).
+window.compressPhoto = async function(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
@@ -478,33 +483,21 @@ window.compressForDB = async function(file) {
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
-        const MAX_BYTES = 50000; // 50 KB cible
+        const MAX = 350;
         const canvas = document.createElement('canvas');
-
-        // Essai avec plusieurs combinaisons taille/qualité
-        const attempts = [
-          { maxPx: 280, q: 0.65 },
-          { maxPx: 240, q: 0.60 },
-          { maxPx: 200, q: 0.55 },
-          { maxPx: 180, q: 0.50 },
-          { maxPx: 160, q: 0.45 },
-        ];
-
-        let result = null;
-        for (const { maxPx, q } of attempts) {
-          let w = img.width, h = img.height;
-          // Format portrait : on contraint la hauteur
-          if (h > maxPx * 1.33) { w = Math.round(w * maxPx * 1.33 / h); h = Math.round(maxPx * 1.33); }
-          if (w > maxPx)        { h = Math.round(h * maxPx / w);         w = maxPx; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          const b64 = canvas.toDataURL('image/jpeg', q);
-          // base64 → bytes approximatif
-          const approxBytes = Math.round((b64.length - 22) * 3 / 4);
-          if (approxBytes <= MAX_BYTES) { result = b64; break; }
-          result = b64; // garder le dernier si rien ne passe
+        let w = img.width, h = img.height;
+        // Garder le ratio portrait
+        if (h >= w) {
+          // portrait ou carré : contraindre hauteur
+          if (h > MAX * 1.4) { w = Math.round(w * MAX * 1.4 / h); h = Math.round(MAX * 1.4); }
+          if (w > MAX)       { h = Math.round(h * MAX / w);        w = MAX; }
+        } else {
+          // paysage : contraindre largeur
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
         }
-        resolve(result);
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
       img.src = e.target.result;
     };
@@ -513,7 +506,6 @@ window.compressForDB = async function(file) {
 };
 
 if (IS_DEMO) {
-  // ── MODE DÉMO (localStorage) ──
   document.getElementById('config-warn').style.display = 'block';
   window.students = JSON.parse(localStorage.getItem('gfc_demo') || '{}');
   hideLoader('Mode démonstration (données locales)');
@@ -537,12 +529,10 @@ if (IS_DEMO) {
   };
 
 } else {
-  // ── FIREBASE RÉEL ──
   const app    = initializeApp(FIREBASE_CONFIG);
   const db     = getDatabase(app);
   const stuRef = ref(db, 'students');
 
-  // Écoute en temps réel → tous les utilisateurs reçoivent les mises à jour
   onValue(stuRef, (snap) => {
     window.students = snap.val() || {};
     window._fbReady = true;
@@ -588,12 +578,12 @@ function hideLoader(msg) {
 //  👨‍🏫 PROFESSEURS & PINs — MODIFIEZ ICI
 // ════════════════════════════════════
 const PROFS = [
-  { id: 'p1', name: 'Prof. Martin',  init: 'MA', pin: '1234' },
-  { id: 'p2', name: 'Prof. Dubois',  init: 'DU', pin: '2345' },
-  { id: 'p3', name: 'Prof. Bernard', init: 'BE', pin: '3456' },
-  { id: 'p4', name: 'Prof. Lefevre', init: 'LE', pin: '4567' },
-  { id: 'p5', name: 'Prof. Moreau',  init: 'MO', pin: '5678' },
-  { id: 'p6', name: 'Prof. Lambert', init: 'LA', pin: '6789' },
+  { id: 'p1', name: 'Prof. Laiachi',  init: 'LA', pin: '1234' },
+  { id: 'p2', name: 'Prof. Waloufi',  init: 'WA', pin: '2345' },
+  { id: 'p3', name: 'Prof. Ajouil', init: 'AO', pin: '3456' },
+  { id: 'p4', name: 'Prof. Rahli', init: 'RA', pin: '4567' },
+  { id: 'p5', name: 'Prof. Zerouali',  init: 'ZR', pin: '5678' },
+  { id: 'p6', name: 'Prof. Adnani', init: 'AD', pin: '6789' },
 ];
 // ════════════════════════════════════
 
@@ -729,6 +719,33 @@ function esc(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Licence "Autre" toggle ──
+function toggleAutreLicence(val) {
+  const wrap  = document.getElementById('autre-licence-wrap');
+  const input = document.getElementById('flicence-autre');
+  if (val === 'Autre') {
+    wrap.style.display = 'block';
+    input.focus();
+  } else {
+    wrap.style.display = 'none';
+    input.value = '';
+  }
+}
+// Sync: quand l'utilisateur tape dans le champ libre,
+// on met à jour l'option "Autre" pour que la valeur réelle soit le texte saisi.
+function syncAutreLicence() {
+  // Rien à faire ici — on lit flicence-autre au moment du save
+}
+// Retourne la vraie valeur de licence (texte libre si Autre)
+function getLicenceValue() {
+  const sel = document.getElementById('flicence').value;
+  if (sel === 'Autre') {
+    const custom = document.getElementById('flicence-autre').value.trim();
+    return custom || 'Autre';
+  }
+  return sel;
+}
+
 // ── Open Add ──
 function openAdd() {
   editing = null; pendingFile = null;
@@ -738,6 +755,8 @@ function openAdd() {
   document.getElementById('fparcours').value = '';
   document.getElementById('fannee').value    = '';
   document.getElementById('flicence').value  = '';
+  document.getElementById('flicence-autre').value = '';
+  document.getElementById('autre-licence-wrap').style.display = 'none';
   clearPhUI();
   document.getElementById('bdel').style.display = 'none';
   document.getElementById('bsave').textContent = 'Enregistrer';
@@ -757,7 +776,21 @@ function openEdit(id) {
   document.getElementById('femail').value   = s.email    || '';
   document.getElementById('fparcours').value = s.parcours || '';
   document.getElementById('fannee').value   = s.annee    || '';
-  document.getElementById('flicence').value = s.licence  || '';
+  // Restore licence — handle custom "Autre" values
+  const knownLicences = ['Licence Économie','Licence Gestion','Licence Comptabilité',
+    'Licence Finance','Licence Droit','Licence Mathématiques','Licence Informatique','Autre'];
+  const storedLicence = s.licence || '';
+  const isKnown = knownLicences.includes(storedLicence) || storedLicence === '';
+  if (!isKnown) {
+    // Custom licence: select "Autre" and fill the text input
+    document.getElementById('flicence').value = 'Autre';
+    document.getElementById('flicence-autre').value = storedLicence;
+    document.getElementById('autre-licence-wrap').style.display = 'block';
+  } else {
+    document.getElementById('flicence').value = storedLicence;
+    document.getElementById('flicence-autre').value = '';
+    document.getElementById('autre-licence-wrap').style.display = storedLicence === 'Autre' ? 'block' : 'none';
+  }
   const myN = activeProf && s.profNotes ? s.profNotes[activeProf.id] : null;
   document.getElementById('fremarque').value = myN ? (myN.remarque || '') : '';
   document.getElementById('fnote').value     = myN && myN.note != null ? myN.note : '';
@@ -831,16 +864,16 @@ async function handleSave(e) {
       email:    document.getElementById('femail').value.trim().toLowerCase(),
       parcours: document.getElementById('fparcours').value,
       annee:    document.getElementById('fannee').value,
-      licence:  document.getElementById('flicence').value,
+      licence:  getLicenceValue(),
     };
 
-    // ── Compression photo base64 (< 50 KB → rentre dans la DB) ──
+    // ── Compression photo → stockée en base64 dans Firebase ──
     let photoURL = (editing && editing.photoURL) || null;
 
     if (pendingFile) {
       stxt.textContent = 'Compression de la photo…';
       document.getElementById('upload-progress').style.display = 'block';
-      photoURL = await window.compressForDB(pendingFile);
+      photoURL = await window.compressPhoto(pendingFile);
       document.getElementById('upload-bar').style.width = '100%';
       setTimeout(() => document.getElementById('upload-progress').style.display = 'none', 400);
     } else if (!document.getElementById('fphoto').value) {
