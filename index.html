@@ -823,10 +823,8 @@ function openAdd() {
   document.getElementById('edit-ov').classList.add('open');
 }
 
-// ── Open Edit ──
-function openEdit(id) {
-  const s = (window.students || {})[id];
-  if (!s) return;
+// ── Open Edit (called after PIN verified, or by prof) ──
+function _doOpenEdit(s) {
   editing = s; pendingFile = null;
   document.getElementById('modal-ttl').textContent = 'Modifier la fiche';
   document.getElementById('fid').value      = s.id;
@@ -888,6 +886,33 @@ function closeEdit() {
   editing = null; pendingFile = null;
   document.getElementById('fpin').value = '';
   document.getElementById('fpin-confirm').value = '';
+}
+
+// ── Card click → PIN gate ──
+// Cards call openEdit(id). Profs go straight in. Students must enter PIN.
+function openEdit(id) {
+  const s = (window.students || {})[id];
+  if (!s) return;
+
+  // Profs: direct access
+  if (activeProf) { _doOpenEdit(s); return; }
+
+  // No PIN stored (old fiche): let anyone view but show limited actions
+  editing = s;
+  if (!s.pinHash) {
+    // No PIN protection → open directly (legacy fiche)
+    _doOpenEdit(s);
+    return;
+  }
+
+  // Ask PIN before opening edit form
+  pvAction = 'edit';
+  pvBuf = '';
+  updatePvDots();
+  document.getElementById('pv-err').textContent = '';
+  document.getElementById('pin-verify-title').textContent = 'Modifier cette fiche';
+  document.getElementById('pin-verify-desc').textContent  = 'Entrez votre code PIN personnel pour modifier votre fiche.';
+  document.getElementById('pin-verify-ov').classList.add('open');
 }
 function ovClick(e)  { if (e.target === document.getElementById('edit-ov')) closeEdit(); }
 
@@ -1019,14 +1044,10 @@ async function handleSave(e) {
 // ── Delete ──
 function askDelete() {
   if (!editing) return;
-  // Professors can delete without PIN
-  if (activeProf) {
-    toDelete = editing;
-    document.getElementById('del-ov').classList.add('open');
-    return;
-  }
-  // Students must verify their PIN first
-  openPinVerify('delete');
+  // PIN was already verified when the edit form was opened
+  // Just show the confirm dialog
+  toDelete = editing;
+  document.getElementById('del-ov').classList.add('open');
 }
 function cancelDel()  { document.getElementById('del-ov').classList.remove('open'); toDelete = null; }
 async function execDel() {
@@ -1100,23 +1121,19 @@ function pvValidate() {
 
 function pvExecute() {
   if (pvAction === 'delete') {
-    // Snapshot editing before anything closes it
     toDelete = editing;
-    // Show the confirm dialog (editing is still set here)
     document.getElementById('del-ov').classList.add('open');
   } else if (pvAction === 'save') {
     document.getElementById('sform').requestSubmit();
+  } else if (pvAction === 'edit') {
+    _doOpenEdit(editing);
   }
   pvAction = null;
 }
 
 function handleSaveClick() {
-  // New fiche: no PIN check needed (PIN is set during creation)
-  if (!editing) { document.getElementById('sform').requestSubmit(); return; }
-  // Prof: no PIN needed
-  if (activeProf) { document.getElementById('sform').requestSubmit(); return; }
-  // Edit: ask for PIN
-  openPinVerify('save');
+  // Always just submit — PIN was already verified at card-click stage
+  document.getElementById('sform').requestSubmit();
 }
 
 // ── Toast ──
