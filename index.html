@@ -459,7 +459,7 @@ import { getDatabase, ref, onValue, push, update, remove, set }
 // ═══════════════════════════════════════════════════════════
 //  🔥 FIREBASE — Remplacez par vos valeurs
 // ═══════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
+const firebaseConfig = {
   apiKey: "AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM",
   authDomain: "trombinoscopegfc26.firebaseapp.com",
   databaseURL: "https://trombinoscopegfc26-default-rtdb.europe-west1.firebasedatabase.app",
@@ -469,9 +469,13 @@ const FIREBASE_CONFIG = {
   appId: "1:1077452659073:web:db2b2a89a0cb1325d37080",
   measurementId: "G-X84HRMRDFC"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 // ═══════════════════════════════════════════════════════════
 
-const IS_DEMO   = FIREBASE_CONFIG.apiKey === 'AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM';
+const IS_DEMO   = firebaseConfig.apiKey === 'AIzaSyCQ0soTbuLD02Sj0ghEzVYWoOK4cTQh0qM';
 window._fbReady = false;
 
 // ── Compression photo : redimensionne à max 350px, JPEG 72% ──
