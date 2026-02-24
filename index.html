@@ -1031,13 +1031,16 @@ function askDelete() {
 function cancelDel()  { document.getElementById('del-ov').classList.remove('open'); toDelete = null; }
 async function execDel() {
   if (!toDelete) return;
+  const idToDelete = toDelete.id; // snapshot before any state reset
+  cancelDel();
+  closeEdit();
   try {
-    await window.fbDelete(toDelete.id);
+    await window.fbDelete(idToDelete);
     toast('🗑 Fiche supprimée', 'ok');
   } catch (e) {
+    console.error('Delete error:', e);
     toast('❌ Erreur lors de la suppression', 'err');
   }
-  cancelDel(); closeEdit();
 }
 
 // ── PIN Verify overlay ──
@@ -1057,7 +1060,8 @@ function openPinVerify(action) {
 
 function pvCancel() {
   document.getElementById('pin-verify-ov').classList.remove('open');
-  pvBuf = ''; pvAction = null;
+  pvBuf = '';
+  // Don't reset pvAction here — pvExecute needs it
 }
 
 function pvKp(d) {
@@ -1080,14 +1084,12 @@ function pvValidate() {
   if (!editing) { pvCancel(); return; }
   const expected = editing.pinHash;
   const entered  = btoa('gfc26_' + pvBuf + '_salt');
-  if (!expected) {
-    // Fiche sans PIN (ancienne fiche) → autoriser
-    pvCancel();
-    pvExecute();
-    return;
-  }
-  if (entered === expected) {
-    pvCancel();
+  const pinOk    = !expected || entered === expected;
+
+  if (pinOk) {
+    // Close PIN overlay first, THEN execute action (editing still intact)
+    document.getElementById('pin-verify-ov').classList.remove('open');
+    pvBuf = '';
     pvExecute();
   } else {
     document.getElementById('pv-err').textContent = '❌ Code PIN incorrect.';
@@ -1098,11 +1100,14 @@ function pvValidate() {
 
 function pvExecute() {
   if (pvAction === 'delete') {
+    // Snapshot editing before anything closes it
     toDelete = editing;
+    // Show the confirm dialog (editing is still set here)
     document.getElementById('del-ov').classList.add('open');
   } else if (pvAction === 'save') {
     document.getElementById('sform').requestSubmit();
   }
+  pvAction = null;
 }
 
 function handleSaveClick() {
